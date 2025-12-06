@@ -1,69 +1,96 @@
 #include "socket_utils.h"
 
-#include <fcntl.h>
-#include <arpa/inet.h>
-#include <netdb.h>
-#include <cstring>
+#include <string.h>
+#include <unistd.h>
 
-namespace net
+#include "util/common.h"
+
+namespace dRPC::net
 {
-    bool SocketUtils::SetNonBlocking(int fd, bool non_blocking)
+    int SocketUtils::socket()
     {
-        int flags = fcntl(fd, F_GETFL, 0);
-        if (flags < 0)
-            return false;
-
-        if (non_blocking)
+        int sockfd;
+        if ((sockfd = ::socket(AF_INET, SOCK_STREAM, 0)) < 0)
         {
-            flags |= O_NONBLOCK;
+            error("create socket failed: {}", strerror(errno));
+            ::exit(EXIT_FAILURE);
         }
-        else
-        {
-            flags &= ~O_NONBLOCK;
-        }
-
-        return fcntl(fd, F_SETFL, flags) == 0;
+        return sockfd;
     }
 
-    bool SocketUtils::SetReuseAddr(int fd, bool reuse)
+    void SocketUtils::bind(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
     {
-        int optval = reuse ? 1 : 0;
-        return setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval)) == 0;
-    }
-
-    bool SocketUtils::ResolveHostname(const std::string &hostname, sockaddr_in *addr)
-    {
-        std::memset(addr, 0, sizeof(sockaddr_in));
-        addr->sin_family = AF_INET;
-
-        if (inet_pton(AF_INET, hostname.c_str(), &addr->sin_addr) == 1)
+        if (::bind(sockfd, addr, addrlen) < 0)
         {
-            return true;
+            error("bind failed: {}", strerror(errno));
+            ::close(sockfd);
+            ::exit(EXIT_FAILURE);
         }
-
-        hostent *he = gethostbyname(hostname.c_str());
-        if (he == nullptr)
-            return false;
-
-        std::memcpy(&addr->sin_addr, he->h_addr_list[0], he->h_length);
-        return true;
     }
 
-    std::string SocketUtils::GetpeerAddress(int fd)
+    void SocketUtils::listen(int sockfd, int backlog)
     {
-        sockaddr_in addr{};
-        socklen_t len = sizeof(addr);
-        if (getpeername(fd, reinterpret_cast<sockaddr *>(&addr), &len) < 0)
+        if (::listen(sockfd, backlog) < 0)
         {
-            return "unknown";
+            error("listen failed: {}", strerror(errno));
+            ::close(sockfd);
+            ::exit(EXIT_FAILURE);
         }
-        return ToString(addr);
     }
 
-    std::string SocketUtils::ToString(const sockaddr_in &addr)
+    int SocketUtils::accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen)
     {
-        char buffer[INET_ADDRSTRLEN];
-        const char *result = inet_ntop(AF_INET, &addr.sin_addr, buffer, sizeof(buffer));
-        return result ? std::string(result) + ":" + std::to_string(ntohs(addr.sin_port)) : "invalid";
+        int client_fd;
+        if ((client_fd = ::accept(sockfd, addr, addrlen)) < 0)
+        {
+            error("accept failed: {}", strerror(errno));
+        }
+        return client_fd;
+    }
+
+    void SocketUtils::inet_pton(int af, const char *src, void *dst)
+    {
+        if (::inet_pton(af, src, dst) <= 0)
+        {
+            error("inet_pton failed: {}", strerror(errno));
+            ::exit(EXIT_FAILURE);
+        }
+    }
+
+    std::string SocketUtils::inet_ntoa(struct in_addr in)
+    {
+        const char *ip = ::inet_ntoa(in);
+        return ip;
+    }
+
+    int SocketUtils::connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
+    {
+        int ret = ::connect(sockfd, addr, addrlen);
+        if (ret < 0)
+        {
+            error("connect failed: {}", strerror(errno));
+            ::close(sockfd);
+            ::exit(EXIT_FAILURE);
+        }
+        return ret;
+    }
+
+    int SocketUtils::send(int sockfd, const void *buf, size_t len)
+    {
+        int ret = ::send(sockfd, buf, len, 0);
+        if (ret < 0)
+        {
+            error("send failed: {}", strerror(errno));
+        }
+        return ret;
+    }
+
+    void SocketUtils::setsockopt(int sockfd, int level, int optname, const void *optval, socklen_t optlen)
+    {
+        if (::setsockopt(sockfd, level, optname, optval, optlen) < 0)
+        {
+            error("setsockopt failed: {}", strerror(errno));
+            ::close(sockfd);
+        }
     }
 }

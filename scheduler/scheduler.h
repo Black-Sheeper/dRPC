@@ -1,54 +1,60 @@
 #pragma once
 
-#include <queue>
-#include <coroutine>
-#include <mutex>
-#include <functional>
-#include <atomic>
+#include <cstdint>
 
-#include "task.h"
-#include "epoll_executor.h"
+#include "util/common.h"
+#include "net/connection.h"
 
-namespace scheduler
+namespace dRPC
 {
+    namespace net{
+        class Connection;
+    }
+    
+    enum struct EventType : uint8_t
+    {
+        READ,
+        WRITE,
+        DELETE,
+        UNKNOWN,
+    };
+
+    struct EventItem
+    {
+        EventType type;
+        dRPC::net::Connection *conn;
+    };
+
+    class Executor
+    {
+    public:
+        Executor() = default;
+        virtual ~Executor() = default;
+
+        virtual bool add_event(const EventItem &item) = 0;
+
+        virtual void stop() = 0;
+
+        virtual bool spawn(Closure &&task) = 0;
+    };
+
     class Scheduler
     {
-    private:
-        void ProcessTasks();
-
-        std::queue<std::coroutine_handle<>> ready_queue_;
-        std::queue<std::function<void()>> function_queue_;
-        std::mutex mutex_;
-        std::atomic<bool> running_;
-
-        scheduler::EpollExecutor io_executor_;
-
     public:
-        Scheduler();
-        ~Scheduler();
+        Scheduler(int timeout);
+        ~Scheduler() = default;
 
-        // 协程调度
-        void Schedule(std::coroutine_handle<> handle);
-        void Schedule(std::function<void()> func);
-
-        template <typename T>
-        void Schedule(Task<T> task)
+        void stop()
         {
-            // 获取协程句柄并调度
-            auto handle = task.get_handle();
-            if (handle && !handle.done())
-            {
-                std::coroutine_handle<> base = handle;
-                Schedule(base);
-            }
+            executor_->stop();
         }
 
-        // IO事件管理
-        scheduler::EpollExecutor &GetIOExecutor() { return io_executor_; }
+        Executor *alloc_executor() { return executor_.get(); }
 
-        // 运行调度器
-        void Run();
-        void Stop();
-        bool Running() const { return running_; }
+    private:
+        std::unique_ptr<Executor> executor_;
+
+        Scheduler(const Scheduler &) = delete;
+        Scheduler &operator=(const Scheduler &) = delete;
     };
 }

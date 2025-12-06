@@ -12,51 +12,43 @@ protected:
 // 基础功能测试
 TEST_F(MPMCQueueTest, BasicPushPop)
 {
-    MPMCQueue<int> queue;
+    dRPC::util::MPMCQueue<int> queue;
 
     queue.push(1);
     queue.push(2);
     queue.push(3);
 
-    auto result1 = queue.pop();
-    auto result2 = queue.pop();
-    auto result3 = queue.pop();
-    auto result4 = queue.pop(); // 空队列
+    int result1, result2, result3, result4;
+    EXPECT_TRUE(queue.pop(result1));
+    EXPECT_TRUE(queue.pop(result2));
+    EXPECT_TRUE(queue.pop(result3));
+    EXPECT_FALSE(queue.pop(result4)); // 空队列
 
-    EXPECT_TRUE(result1.has_value());
-    EXPECT_EQ(result1.value(), 1);
-
-    EXPECT_TRUE(result2.has_value());
-    EXPECT_EQ(result2.value(), 2);
-
-    EXPECT_TRUE(result3.has_value());
-    EXPECT_EQ(result3.value(), 3);
-
-    EXPECT_FALSE(result4.has_value());
+    EXPECT_EQ(result1, 1);
+    EXPECT_EQ(result2, 2);
+    EXPECT_EQ(result3, 3);
 }
 
 // 测试字符串类型
 TEST_F(MPMCQueueTest, StringType)
 {
-    MPMCQueue<std::string> queue;
+    dRPC::util::MPMCQueue<std::string> queue;
 
     queue.push("hello");
     queue.push("world");
 
-    auto result1 = queue.pop();
-    auto result2 = queue.pop();
+    std::string r1, r2;
+    EXPECT_TRUE(queue.pop(r1));
+    EXPECT_TRUE(queue.pop(r2));
 
-    EXPECT_TRUE(result1.has_value());
-    EXPECT_EQ(result1.value(), "hello");
-
-    EXPECT_TRUE(result2.has_value());
-    EXPECT_EQ(result2.value(), "world");
+    EXPECT_EQ(r1, "hello");
+    EXPECT_EQ(r2, "world");
 }
 
 // 单生产者单消费者测试
 TEST_F(MPMCQueueTest, SingleProducerSingleConsumer)
 {
-    MPMCQueue<int> queue;
+    dRPC::util::MPMCQueue<int> queue;
     const int NUM_ITEMS = 1000;
 
     std::thread producer([&]()
@@ -69,12 +61,11 @@ TEST_F(MPMCQueueTest, SingleProducerSingleConsumer)
     std::thread consumer([&]()
                          {
         for (int i = 0; i < NUM_ITEMS; ++i) {
-            auto item = queue.pop();
-            while (!item.has_value()) {
+            int item;
+            while (!queue.pop(item)) {
                 std::this_thread::yield();
-                item = queue.pop();
             }
-            consumed.push_back(item.value());
+            consumed.push_back(item);
         } });
 
     producer.join();
@@ -93,7 +84,7 @@ TEST_F(MPMCQueueTest, SingleProducerSingleConsumer)
 // 多生产者单消费者测试
 TEST_F(MPMCQueueTest, MultipleProducersSingleConsumer)
 {
-    MPMCQueue<int> queue;
+    dRPC::util::MPMCQueue<int> queue;
     const int NUM_PRODUCERS = 4;
     const int ITEMS_PER_PRODUCER = 250;
     const int TOTAL_ITEMS = NUM_PRODUCERS * ITEMS_PER_PRODUCER;
@@ -116,12 +107,11 @@ TEST_F(MPMCQueueTest, MultipleProducersSingleConsumer)
     std::thread consumer([&]()
                          {
         for (int i = 0; i < TOTAL_ITEMS; ++i) {
-            auto item = queue.pop();
-            while (!item.has_value()) {
+            int item;
+            while (!queue.pop(item)) {
                 std::this_thread::yield();
-                item = queue.pop();
             }
-            consumed.push_back(item.value());
+            consumed.push_back(item);
         } });
 
     for (auto &producer : producers)
@@ -143,7 +133,7 @@ TEST_F(MPMCQueueTest, MultipleProducersSingleConsumer)
 // 单生产者多消费者测试
 TEST_F(MPMCQueueTest, SingleProducerMultipleConsumers)
 {
-    MPMCQueue<int> queue;
+    dRPC::util::MPMCQueue<int> queue;
     const int NUM_CONSUMERS = 4;
     const int TOTAL_ITEMS = 1000;
 
@@ -162,9 +152,9 @@ TEST_F(MPMCQueueTest, SingleProducerMultipleConsumers)
         consumers.emplace_back([&, consumer_id = i]()
                                {
             while (consumed_count.load() < TOTAL_ITEMS) {
-                auto item = queue.pop();
-                if (item.has_value()) {
-                    consumed_lists[consumer_id].push_back(item.value());
+                int item;
+                if (queue.pop(item)) {
+                    consumed_lists[consumer_id].push_back(item);
                     consumed_count.fetch_add(1, std::memory_order_relaxed);
                 } else {
                     std::this_thread::yield();
@@ -197,7 +187,7 @@ TEST_F(MPMCQueueTest, SingleProducerMultipleConsumers)
 // 多生产者多消费者测试
 TEST_F(MPMCQueueTest, MultipleProducersMultipleConsumers)
 {
-    MPMCQueue<int> queue;
+    dRPC::util::MPMCQueue<int> queue;
     const int NUM_PRODUCERS = 4;
     const int NUM_CONSUMERS = 4;
     const int ITEMS_PER_PRODUCER = 250;
@@ -227,9 +217,9 @@ TEST_F(MPMCQueueTest, MultipleProducersMultipleConsumers)
         consumers.emplace_back([&, consumer_id = i]()
                                {
             while (consumed_count.load() < TOTAL_ITEMS) {
-                auto item = queue.pop();
-                if (item.has_value()) {
-                    consumed_lists[consumer_id].push_back(item.value());
+                int item;
+                if (queue.pop(item)) {
+                    consumed_lists[consumer_id].push_back(item);
                     consumed_count.fetch_add(1, std::memory_order_relaxed);
                 } else {
                     std::this_thread::yield();
@@ -266,7 +256,7 @@ TEST_F(MPMCQueueTest, MultipleProducersMultipleConsumers)
 // 性能测试 - 高并发场景
 TEST_F(MPMCQueueTest, HighConcurrencyPerformance)
 {
-    MPMCQueue<int> queue; 
+    dRPC::util::MPMCQueue<int> queue; 
     const int NUM_OPERATIONS = 10000;
     const int NUM_PRODUCERS = 4;
     const int NUM_CONSUMERS = 4;
@@ -282,7 +272,8 @@ TEST_F(MPMCQueueTest, HighConcurrencyPerformance)
     for (int i = 0; i < 100; ++i)
     {
         queue.push(i);
-        queue.pop();
+        int tmp;
+        queue.pop(tmp);
     }
 
     auto start_time = std::chrono::high_resolution_clock::now();
@@ -305,7 +296,8 @@ TEST_F(MPMCQueueTest, HighConcurrencyPerformance)
         consumers.emplace_back([&]()
                                {
             for (int j = 0; j < NUM_OPERATIONS / NUM_CONSUMERS; ++j) {
-                if (queue.pop()) {
+                int val;
+                if (queue.pop(val)) {
                     pop_count.fetch_add(1, std::memory_order_relaxed);
                     completed_operations.fetch_add(1, std::memory_order_relaxed);
                 }
@@ -332,7 +324,7 @@ TEST_F(MPMCQueueTest, HighConcurrencyPerformance)
 // 内存使用测试 - 大量数据
 TEST_F(MPMCQueueTest, MemoryUsageWithLargeData)
 {
-    MPMCQueue<std::vector<int>> queue;
+    dRPC::util::MPMCQueue<std::vector<int>> queue;
     const int NUM_OPERATIONS = 1000;
 
     for (int i = 0; i < NUM_OPERATIONS; ++i)
@@ -344,10 +336,10 @@ TEST_F(MPMCQueueTest, MemoryUsageWithLargeData)
     int popped_count = 0;
     for (int i = 0; i < NUM_OPERATIONS; ++i)
     {
-        auto item = queue.pop();
-        if (item.has_value())
+        std::vector<int> item;
+        if (queue.pop(item))
         {
-            EXPECT_EQ(item.value().size(), 1000);
+            EXPECT_EQ(item.size(), 1000);
             popped_count++;
         }
     }
@@ -358,30 +350,29 @@ TEST_F(MPMCQueueTest, MemoryUsageWithLargeData)
 // 边界条件测试
 TEST_F(MPMCQueueTest, BoundaryConditions)
 {
-    MPMCQueue<int> queue;
+    dRPC::util::MPMCQueue<int> queue;
 
     // 测试空队列pop
-    auto result = queue.pop();
-    EXPECT_FALSE(result.has_value());
+    int result;
+    EXPECT_FALSE(queue.pop(result));
 
     // 测试push/pop交替
     for (int i = 0; i < 100; ++i)
     {
         queue.push(i);
-        auto item = queue.pop();
-        EXPECT_TRUE(item.has_value());
-        EXPECT_EQ(item.value(), i);
+        int item;
+        EXPECT_TRUE(queue.pop(item));
+        EXPECT_EQ(item, i);
     }
 
     // 再次测试空队列
-    result = queue.pop();
-    EXPECT_FALSE(result.has_value());
+    EXPECT_FALSE(queue.pop(result));
 }
 
 // 长时间运行测试
 TEST_F(MPMCQueueTest, LongRunningTest)
 {
-    MPMCQueue<int> queue;
+    dRPC::util::MPMCQueue<int> queue;
     const int DURATION_MS = 5000; // 运行5秒
     std::atomic<bool> stop{false};
 
@@ -401,10 +392,10 @@ TEST_F(MPMCQueueTest, LongRunningTest)
         auto start = std::chrono::steady_clock::now();
         while (!stop.load() || 
                std::chrono::steady_clock::now() - start < std::chrono::milliseconds(DURATION_MS + 100)) {
-            auto item = queue.pop();
-            if (item.has_value()) {
-                EXPECT_GT(item.value(), last_value);
-                last_value = item.value();
+            int item;
+            if (queue.pop(item)) {
+                EXPECT_GT(item, last_value);
+                last_value = item;
             } else {
                 std::this_thread::yield();
             }

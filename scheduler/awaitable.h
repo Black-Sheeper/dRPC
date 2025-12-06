@@ -1,60 +1,48 @@
 #pragma once
-#include "epoll_executor.h"
-#include "task.h"
 
-class ReadAwaitable
+#include <coroutine>
+
+namespace dRPC
 {
-public:
-    ReadAwaitable(int fd, EpollExecutor &executor)
-        : fd_(fd), executor_(executor) {}
-
-    bool await_ready()
-    {
-        return executor_.IsReadReady(fd_);
+    namespace net{
+        class Connection;
     }
-
-    void await_suspend(std::coroutine_handle<> coro)
+    
+    struct RegisterReadAwaiter
     {
-        executor_.RegisterRead(fd_, coro);
-    }
+        dRPC::net::Connection *conn_;
 
-    void await_resume() {} // 调用者需要自己读取数据
+        bool await_ready() const noexcept { return false; }
+        bool await_suspend(std::coroutine_handle<> handle) noexcept;
+        void await_resume() const noexcept {}
+    };
 
-private:
-    int fd_;
-    EpollExecutor &executor_;
-};
-
-class WriteAwaitable
-{
-public:
-    WriteAwaitable(int fd, EpollExecutor &executor)
-        : fd_(fd), executor_(executor) {}
-
-    bool await_ready()
+    struct ReadAwaiter
     {
-        return executor_.IsWriteReady(fd_);
-    }
+        dRPC::net::Connection *conn_;
+        bool should_suspend_;
 
-    void await_suspend(std::coroutine_handle<> coro)
+        bool await_ready() const noexcept { return false; }
+        bool await_suspend(std::coroutine_handle<> handle) noexcept;
+        void await_resume() const noexcept {}
+    };
+
+    struct WriteAwaiter
     {
-        executor_.RegisterWrite(fd_, coro);
-    }
+        dRPC::net::Connection *conn_;
+        bool should_suspend_;
 
-    void await_resume() {} // 调用者需要自己写入数据
+        bool await_ready() const noexcept { return !should_suspend_; }
+        void await_suspend(std::coroutine_handle<> handle) noexcept;
+        void await_resume() const noexcept {}
+    };
 
-private:
-    int fd_;
-    EpollExecutor &executor_;
-};
+    struct WaitWriteAwaiter
+    {
+        dRPC::net::Connection *conn_;
 
-// 工具函数
-inline ReadAwaitable wait_readable(int fd, EpollExecutor &executor)
-{
-    return ReadAwaitable{fd, executor};
-}
-
-inline WriteAwaitable wait_writable(int fd, EpollExecutor &executor)
-{
-    return WriteAwaitable{fd, executor};
+        bool await_ready() const noexcept;
+        void await_suspend(std::coroutine_handle<> handle) noexcept;
+        void await_resume() const noexcept {}
+    };
 }

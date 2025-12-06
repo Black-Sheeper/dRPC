@@ -1,94 +1,77 @@
 #include "accepter.h"
 
-#include <iostream>
-#include <thread>
+#include <string.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <netinet/tcp.h>
 
-namespace net
+#include "util/common.h"
+#include "socket_utils.h"
+
+namespace dRPC::net
 {
-    Accepter::Accepter(uint16_t port, scheduler::Scheduler *scheduler)
-        : port_(port), running_(false), scheduler_(scheduler) {}
+    Accepter::Accepter(int port, int backlog, int nodelay) : sockfd_(-1), port_(port), backlog_(backlog), nodelay_(nodelay)
+    {
+        sockfd_ = SocketUtils::socket();
+
+        int opt = 1;
+        SocketUtils::setsockopt(sockfd_, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+
+        struct sockaddr_in addr;
+        memset(&addr, 0, sizeof(addr));
+        addr.sin_family = AF_INET;
+        addr.sin_port = htons(port_);
+        addr.sin_addr.s_addr = INADDR_ANY;
+
+        SocketUtils::bind(sockfd_, (const struct sockaddr *)&addr, sizeof(addr));
+
+        info("Accepter start listen on port: {}", port_);
+        SocketUtils::listen(sockfd_, backlog_);
+    }
 
     Accepter::~Accepter()
     {
-        Stop();
+        if (sockfd_ != -1)
+        {
+            ::close(sockfd_);
+        }
     }
 
-    bool Accepter::Start()
+    void Accepter::set_sock_param(int client_fd)
     {
-        if (running_)
+        if (::fcntl(client_fd, F_SETFL, O_NONBLOCK | O_CLOEXEC) == -1)
         {
-            return true;
+            error("fcntl failed: {}", strerror(errno));
+            ::close(client_fd);
         }
 
-        listen_socket_ = std::make_unique<Socket>();
+        // 设置发送缓冲区大小
+        int sendbuf = 512 * 1024;
+        SocketUtils::setsockopt(client_fd, SOL_SOCKET, SO_SNDBUF, &sendbuf, sizeof(sendbuf));
 
-        if (!listen_socket_->Bind(port_))
-        {
-            std::cerr << "Failed to bind to port " << port_ << std::endl;
-            return false;
-        }
+        // 设置接收缓冲区大小
+        int recvbuf = 512 * 1024;
+        SocketUtils::setsockopt(client_fd, SOL_SOCKET, SO_RCVBUF, &recvbuf, sizeof(recvbuf));
 
-        if (!listen_socket_->Listen())
-        {
-            std::cerr << "Failed to listen on port " << port_ << std::endl;
-            return false;
-        }
+        // 设置keepalive
+        int keepalive = 1;
+        SocketUtils::setsockopt(client_fd, SOL_SOCKET, SO_KEEPALIVE, &keepalive, sizeof(keepalive));
 
-        listen_socket_->SetNonBlocking(true);
-        listen_socket_->SetReuseAddr(true);
-
-        running_ = true;
-
-        // 启动接收线程
-        std::thread([this]()
-                    { AcceptLoop(); })
-            .detach();
-
-        std::cout << "Accepter started on port " << port_ << std::endl;
-        return true;
+        // 设置nodelay
+        SocketUtils::setsockopt(client_fd, IPPROTO_TCP, TCP_NODELAY, &nodelay_, sizeof(nodelay_));
     }
 
-    void Accepter::Stop()
+    int Accepter::accept()
     {
-        if (!running_)
+        struct sockaddr_in client_addr;
+        socklen_t client_addrlen = sizeof(client_addr);
+        int client_fd = SocketUtils::accept(sockfd_, (struct sockaddr *)&client_addr, &client_addrlen);
+
+        if (client_fd != -1)
         {
-            return;
+            set_sock_param(client_fd);
         }
 
-        running_ = false;
-
-        if (listen_socket_)
-        {
-            listen_socket_->Close();
-        }
-
-        std::cout << "Accepter stopped" << std::endl;
-    }
-
-    void Accepter::AcceptLoop()
-    {
-        while (running_)
-        {
-            auto client_socket = listen_socket_->Accept();
-            if (client_socket && client_socket->IsValid())
-            {
-                client_socket->SetNonBlocking(true);
-
-                scheduler::EpollExecutor *executor = scheduler_ ? &scheduler_->GetIOExecutor() : nullptr;
-                auto connection = std::make_shared<Connection>(std::move(client_socket), executor);
-
-                std::cout << "New connection accepted: " << connection->GetPeerAddress() << std::endl;
-
-                if (new_conn_cb_)
-                {
-                    new_conn_cb_(connection);
-                }
-            }
-            else
-            {
-                // 短暂休眠避免CPU占用过高
-                std::this_thread::sleep_for(std::chrono::milliseconds(10));
-            }
-        }
+        return client_fd;
     }
 }

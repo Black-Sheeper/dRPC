@@ -1,63 +1,35 @@
 #pragma once
 
-#include <sys/epoll.h>
-#include <unordered_map>
-#include <vector>
-#include <coroutine>
-#include <system_error>
-#include <unistd.h>
-#include <iostream>
-#include <atomic>
-#include <mutex>
-#include <condition_variable>
-#include <cstring>
+#include "scheduler.h"
+#include "util/mpmc_queue.h"
 
-class EpollExecutor
+namespace dRPC
 {
-public:
-    EpollExecutor();
-    ~EpollExecutor();
-
-    // 协程专用接口
-    void RegisterRead(int fd, std::coroutine_handle<> coro);
-    void RegisterWrite(int fd, std::coroutine_handle<> coro);
-    void UnregisterFd(int fd);
-
-    // 状态查询
-    bool IsReadReady(int fd) const;
-    bool IsWriteReady(int fd) const;
-
-    // 事件循环
-    void Poll(int timeout_ms = -1);
-    void Run();  // 持续运行事件循环
-    void Stop(); // 停止事件循环
-
-    // 准确的状态查询
-    bool HasPendingOperations() const
+    class EpollExecutor : public Executor
     {
-        std::lock_guard lock(mutex_);
-        return !read_waiters_.empty() || !write_waiters_.empty();
-    }
+    public:
+        EpollExecutor(int timeout);
+        ~EpollExecutor();
 
-    // 等待新操作注册
-    void WaitForNewOperations();
+        bool add_event(const EventItem &item) override;
 
-private:
-    void CreateEpoll();
-    void UpdataEpoll(int fd, uint32_t events);
-    void ProcessEvent(const epoll_event &event);
+        void stop() override;
 
-    int epoll_fd_;
-    std::atomic<bool> running_{false};
+        bool spawn(Closure &&task) override;
 
-    // 线程安全的等待者管理
-    mutable std::mutex mutex_;
-    std::condition_variable cv_;
-    
-    // 存储协程句柄
-    std::unordered_map<int, std::coroutine_handle<>> read_waiters_;
-    std::unordered_map<int, std::coroutine_handle<>> write_waiters_;
+    private:
+        dRPC::util::MPMCQueue<Closure> task_queue_;
 
-    std::vector<epoll_event> events_;
-    static const int MAX_EVENTS = 1024;
-};
+        std::atomic<bool> should_notify_{false};
+        std::unique_ptr<dRPC::net::Connection> dummy_conn_;
+
+        static const int MAX_EVENTS = 1024;
+
+        std::unique_ptr<std::thread> thread_;
+        int epoll_fd_;
+        bool stop_;
+
+        EpollExecutor(const EpollExecutor &) = delete;
+        EpollExecutor &operator=(const EpollExecutor &) = delete;
+    };
+}

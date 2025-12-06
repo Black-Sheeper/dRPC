@@ -1,17 +1,29 @@
 #pragma once
 
 #include <string>
-#include <netinet/in.h>
+#include <arpa/inet.h>
 
-namespace net
+namespace dRPC::net
 {
     class SocketUtils
     {
     public:
-        static bool SetNonBlocking(int fd, bool non_blocking);
-        static bool SetReuseAddr(int fd, bool reuse);
-        static bool ResolveHostname(const std::string &hostname, sockaddr_in *addr);
-        static std::string GetpeerAddress(int fd);
-        static std::string ToString(const sockaddr_in &addr);
+        static int socket();
+
+        static void bind(int sockfd, const struct sockaddr *addr, socklen_t addrlen);
+
+        static void listen(int sockfd, int backlog);
+
+        static int accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
+
+        static void inet_pton(int af, const char *src, void *dst);
+
+        static std::string inet_ntoa(struct in_addr in);
+
+        static int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen);
+
+        static int send(int sockfd, const void *buf, size_t len);
+
+        static void setsockopt(int sockfd, int level, int optname, const void *optval, socklen_t optlen);
     };
 }

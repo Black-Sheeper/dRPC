@@ -1,237 +1,167 @@
 #include "epoll_executor.h"
 
-#include <fcntl.h>
-#include <poll.h>
+#include <sys/epoll.h>
+#include <string.h>
+#include <sys/eventfd.h>
 
-EpollExecutor::EpollExecutor() : epoll_fd_(-1), running_(false)
-{
-    CreateEpoll();
-    events_.resize(MAX_EVENTS);
-}
+#include "util/common.h"
 
-EpollExecutor::~EpollExecutor()
+namespace dRPC
 {
-    Stop();
-    if (epoll_fd_ >= 0)
+    EpollExecutor::EpollExecutor(int timeout)
     {
-        close(epoll_fd_);
-    }
-}
-
-void EpollExecutor::CreateEpoll()
-{
-    epoll_fd_ = epoll_create1(EPOLL_CLOEXEC);
-    if (epoll_fd_ < 0)
-    {
-        throw std::system_error(errno, std::system_category(), "epoll_create1 failed");
-    }
-}
-
-void EpollExecutor::RegisterRead(int fd, std::coroutine_handle<> coro)
-{
-    std::lock_guard lock(mutex_);
-
-    if (read_waiters_.count(fd))
-    {
-        throw std::runtime_error("FD already registered for reading");
-    }
-
-    // 设置非阻塞
-    int flags = fcntl(fd, F_GETFL, 0);
-    fcntl(fd, F_SETFL, flags | O_NONBLOCK);
-
-    read_waiters_[fd] = coro;
-    UpdataEpoll(fd, EPOLLIN | EPOLLET | EPOLLONESHOT);
-
-    std::cout << "Registered read for fd " << fd << std::endl;
-    cv_.notify_all(); // 通知事件循环有新操作
-}
-
-void EpollExecutor::RegisterWrite(int fd, std::coroutine_handle<> coro)
-{
-    std::lock_guard lock(mutex_);
-
-    if (write_waiters_.count(fd))
-    {
-        throw std::runtime_error("FD already registered for writing");
-    }
-
-    // 设置非阻塞
-    int flags = fcntl(fd, F_GETFL, 0);
-    fcntl(fd, F_SETFL, flags | O_NONBLOCK);
-
-    write_waiters_[fd] = coro;
-    UpdataEpoll(fd, EPOLLOUT | EPOLLET | EPOLLONESHOT);
-
-    std::cout << "Registered write for fd " << fd << std::endl;
-    cv_.notify_all(); // 通知事件循环有新操作
-}
-
-void EpollExecutor::UnregisterFd(int fd)
-{
-    std::lock_guard lock(mutex_);
-
-    read_waiters_.erase(fd);
-    write_waiters_.erase(fd);
-
-    if (epoll_ctl(epoll_fd_, EPOLL_CTL_DEL, fd, nullptr) < 0 && errno != ENOENT)
-    {
-        // ENOENT表示fd已经被移除，这是正常的
-        std::cerr << "Warning: epoll_ctl DEL failed for fd " << fd
-                  << ": " << strerror(errno) << std::endl;
-    }
-
-    std::cout << "Unregistered fd " << fd << std::endl;
-}
-
-void EpollExecutor::UpdataEpoll(int fd, uint32_t events)
-{
-    epoll_event ev{};
-    ev.events = events;
-    ev.data.fd = fd;
-
-    int op = (read_waiters_.count(fd) || write_waiters_.count(fd)) ? EPOLL_CTL_MOD : EPOLL_CTL_ADD;
-
-    if (epoll_ctl(epoll_fd_, op, fd, &ev) < 0)
-    {
-        throw std::system_error(errno, std::system_category(), "epoll_ctl failed");
-    }
-}
-
-bool EpollExecutor::IsReadReady(int fd) const
-{
-    struct pollfd pfd;
-    pfd.fd = fd;
-    pfd.events = POLLIN | POLLPRI;
-    pfd.revents = 0;
-    int ret = ::poll(&pfd, 1, 0);
-    return (ret > 0) && (pfd.revents & (POLLIN | POLLPRI));
-}
-
-bool EpollExecutor::IsWriteReady(int fd) const
-{
-    struct pollfd pfd;
-    pfd.fd = fd;
-    pfd.events = POLLOUT;
-    pfd.revents = 0;
-    int ret = ::poll(&pfd, 1, 0);
-    return (ret > 0) && (pfd.revents & POLLOUT);
-}
-
-void EpollExecutor::WaitForNewOperations()
-{
-    std::unique_lock lock(mutex_);
-    if (read_waiters_.empty() && write_waiters_.empty())
-    {
-        std::cout << "Waiting for new operations..." << std::endl;
-        cv_.wait_for(lock, std::chrono::milliseconds(100));
-    }
-}
-
-void EpollExecutor::ProcessEvent(const epoll_event &event)
-{
-    int fd = event.data.fd;
-    uint32_t revents = event.events;
-
-    // 处理错误事件
-    if (revents & (EPOLLERR | EPOLLHUP))
-    {
-        std::cerr << "Epoll error event on fd " << fd
-                  << ", events: " << revents << std::endl;
-        UnregisterFd(fd);
-        return;
-    }
-
-    // 收集需要恢复的协程
-    auto coroutines = [&]() -> std::vector<std::coroutine_handle<>>
-    {
-        std::lock_guard lock(mutex_);
-        std::vector<std::coroutine_handle<>> result;
-
-        // 收集读等待者
-        if ((revents & EPOLLIN))
+        epoll_fd_ = epoll_create1(EPOLL_CLOEXEC);
+        if (epoll_fd_ == -1)
         {
-            if (auto it = read_waiters_.find(fd); it != read_waiters_.end())
+            error("epoll_create1 failed: {}", strerror(errno));
+        }
+
+        int event_fd = eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC);
+        info("event_fd: {}", event_fd);
+        if (event_fd == -1)
+        {
+            error("eventfd failed: {}", strerror(errno));
+        }
+
+        dummy_conn_ = std::make_unique<dRPC::net::Connection>(event_fd, nullptr, true);
+
+        struct epoll_event ev;
+        ev.data.ptr = dummy_conn_.get();
+        ev.events = EPOLLIN | EPOLLET;
+        if (epoll_ctl(epoll_fd_, EPOLL_CTL_ADD, event_fd, &ev) == -1)
+        {
+            error("epoll_ctl failed: {}", strerror(errno));
+        }
+
+        thread_ = std::make_unique<std::thread>([this, timeout]()
+                                                {
+                                                    while (!stop_)
+                                                    {
+                                                        Closure task;
+                                                        while (task_queue_.pop(task))
+                                                        {
+                                                            task();
+                                                        }
+
+                                                        should_notify_.store(true, std::memory_order_release);
+                                                        struct epoll_event events[MAX_EVENTS];
+                                                        int nready = epoll_wait(epoll_fd_, events, MAX_EVENTS, timeout);
+                                                        if (nready == -1)
+                                                        {
+                                                            error("epoll_wait failed: {}", strerror(errno));
+                                                            continue;
+                                                        }
+                                                        for (int i = 0; i < nready; ++i)
+                                                        {
+                                                            auto conn = static_cast<dRPC::net::Connection *>(events[i].data.ptr);
+                                                            if (!conn)
+                                                            {
+                                                                error("conn is null");
+                                                                continue;
+                                                                ;
+                                                            }
+                                                            if (conn->is_dummy())
+                                                            {
+                                                                uint64_t val=1;
+                                                                ::read(conn->fd(), &val, sizeof(uint64_t));
+                                                                should_notify_.store(false, std::memory_order_release);
+                                                                continue;
+                                                            }
+                                                            if(events[i].events&(EPOLLHUP|EPOLLRDHUP)){
+                                                                conn->close();
+                                                                if(epoll_ctl(epoll_fd_,EPOLL_CTL_DEL,conn->fd(),nullptr)==-1){
+                                                                    error("epoll_ctl failed: {}",strerror(errno));
+                                                                }
+                                                                continue;
+                                                            }
+                                                            if(events[i].events&EPOLLOUT){
+                                                                struct epoll_event ev;
+                                                                ev.data.ptr=conn;
+                                                                ev.events=EPOLLIN|EPOLLET;
+                                                                if(epoll_ctl(epoll_fd_,EPOLL_CTL_MOD,conn->fd(),&ev)==-1){
+                                                                    error("epoll_ctl failed: {}",strerror(errno));
+                                                                    continue;
+                                                                }
+                                                                conn->resume_write();
+                                                            }
+                                                            if(events[i].events&EPOLLIN){
+                                                                conn->resume_read();
+                                                            }
+                                                        }
+                                                    } });
+    }
+
+    EpollExecutor::~EpollExecutor()
+    {
+        if (thread_ && thread_->joinable())
+        {
+            thread_->join();
+        }
+        if (epoll_fd_ != -1)
+        {
+            ::close(epoll_fd_);
+            epoll_fd_ = -1;
+        }
+    }
+
+    void EpollExecutor::stop()
+    {
+        stop_ = true;
+    }
+
+    bool EpollExecutor::spawn(Closure &&task)
+    {
+        if (!task_queue_.push(std::move(task)))
+        {
+            error("task queue is full");
+            return false;
+        }
+
+        bool expect = true;
+        if (should_notify_.compare_exchange_strong(expect, false, std::memory_order_release))
+        {
+            uint64_t val = 1;
+            ::write(dummy_conn_->fd(), &val, sizeof(uint64_t));
+        }
+        return true;
+    }
+
+    bool EpollExecutor::add_event(const EventItem &item)
+    {
+        struct epoll_event ev;
+        ev.data.ptr = item.conn;
+        switch (item.type)
+        {
+        case EventType::READ:
+            ev.events = EPOLLIN | EPOLLET;
+            if (epoll_ctl(epoll_fd_, EPOLL_CTL_ADD, item.conn->fd(), &ev) == -1)
             {
-                result.push_back(it->second);
-                read_waiters_.erase(it);
+                error("epoll_ctl failed: {}", strerror(errno));
+                return false;
             }
-        }
-
-        // 收集写等待者
-        if ((revents & EPOLLOUT))
-        {
-            if (auto it = write_waiters_.find(fd); it != write_waiters_.end())
+            break;
+        case EventType::WRITE:
+            ev.events = EPOLLIN | EPOLLOUT | EPOLLET;
+            if (epoll_ctl(epoll_fd_, EPOLL_CTL_MOD, item.conn->fd(), &ev) == -1)
             {
-                result.push_back(it->second);
-                write_waiters_.erase(it);
+                error("epoll_ctl failed: {}", strerror(errno));
+                return false;
             }
+            break;
+        case EventType::DELETE:
+            if (epoll_ctl(epoll_fd_, EPOLL_CTL_DEL, item.conn->fd(), nullptr) == -1)
+            {
+                error("epoll_ctl failed: {}", strerror(errno));
+                return false;
+            }
+            break;
+        case EventType::UNKNOWN:
+            ev.events = 0;
+            break;
+        default:
+            error("unknown event type: {}", static_cast<int>(item.type));
+            return false;
         }
-
-        return result;
-    }();
-
-    // 恢复所有协程
-    for (auto &coro : coroutines)
-    {
-        if (coro && !coro.done())
-        {
-            coro.resume();
-        }
+        return true;
     }
-
-    // 如果没有等待者了，移除epoll监控
-    std::lock_guard lock(mutex_);
-    if (!read_waiters_.count(fd) && !write_waiters_.count(fd))
-    {
-        UnregisterFd(fd);
-    }
-}
-
-void EpollExecutor::Poll(int timeout_ms)
-{
-    int ready_count = epoll_wait(epoll_fd_, events_.data(), MAX_EVENTS, timeout_ms);
-
-    if (ready_count < 0)
-    {
-        if (errno == EINTR)
-        {
-            return; // 被信号中断，正常返回
-        }
-        throw std::system_error(errno, std::system_category(), "epoll_wait failed");
-    }
-
-    for (int i = 0; i < ready_count; ++i)
-    {
-        ProcessEvent(events_[i]);
-    }
-}
-
-void EpollExecutor::Run()
-{
-    running_ = true;
-    std::cout << "Event loop started" << std::endl;
-
-    while (running_)
-    {
-        // 先检查是否有操作需要处理
-        if (HasPendingOperations())
-        {
-            Poll(10); // 有操作时快速轮询
-        }
-        else
-        {
-            // 没有操作时等待新操作注册
-            WaitForNewOperations();
-        }
-    }
-
-    std::cout << "Event loop stopped" << std::endl;
-}
-
-void EpollExecutor::Stop()
-{
-    std::cout << "Stopping event loop" << std::endl;
-    running_ = false;
-    cv_.notify_all(); // 唤醒等待的线程
 }

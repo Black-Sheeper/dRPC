@@ -1,43 +1,54 @@
 #pragma once
 
-#include <functional>
 #include <unordered_map>
-#include <memory>
-#include <atomic>
+#include <google/protobuf/service.h>
+#include <queue>
 
-#include "accepter.h"
-#include "connection.h"
-#include "scheduler.h"
+#include "net/connection.h"
+#include "scheduler/task.h"
+#include "net/accepter.h"
+#include "scheduler/scheduler.h"
 
-namespace server
+namespace dRPC::server
 {
+    struct RpcServerOptions
+    {
+        int port_;
+        int backlog_;
+        int nodelay_;
+        int timeout_;
+
+        RpcServerOptions(int port, int backlog = 256, int nodelay = 1, int timeout = -1)
+            : port_(port), backlog_(backlog), nodelay_(nodelay), timeout_(timeout) {}
+    };
+
     class RpcServer
     {
     public:
-        using ServiceMethod = std::function<std::vector<char>(const std::vector<char> &request)>;
+        RpcServer(const RpcServerOptions &options);
+        ~RpcServer() = default;
 
-        RpcServer(uint16_t port);
-        ~RpcServer();
+        void register_service(const std::string &service_name, google::protobuf::Service *service)
+        {
+            service_registry_[service_name] = service;
+        }
 
-        // 注册RPC服务方法
-        void RegisterService(const std::string &service_name, const std::string &method_name, ServiceMethod method);
-
-        // 启动服务器
-        void Start();
-        void Stop();
+        void start();
 
     private:
-        scheduler::Task<> HandleConnectionCoroutine(std::shared_ptr<net::Connection> conn);
-        void HandleNewConnection(std::shared_ptr<net::Connection> conn);
-        scheduler::Task<> HandleRpcMessageCoroutine(std::shared_ptr<net::Connection> conn, std::vector<char> request_data);
-        std::vector<char> ProcessRpcCall(const std::vector<char> &request);
+        dRPC::Task recv_fn(std::shared_ptr<net::Connection> conn);
+        dRPC::Task send_fn(std::shared_ptr<net::Connection> conn);
 
-        uint16_t port_;
-        std::unique_ptr<net::Accepter> accepter_;
-        scheduler::Scheduler scheduler_;
+        RpcServerOptions options_;
 
-        // 服务注册表：service.method -> 处理函数
-        std::unordered_map<std::string, ServiceMethod> service_registry_;
-        std::atomic<bool> running_;
+        std::queue<std::shared_ptr<net::Connection>> send_queue_;
+
+        net::Accepter accepter_;
+        std::unique_ptr<dRPC::Scheduler> scheduler_;
+
+        std::unordered_map<std::string, google::protobuf::Service *> service_registry_;
+
+        RpcServer(const RpcServer &) = delete;
+        RpcServer &operator=(const RpcServer &) = delete;
     };
 }

@@ -1,47 +1,43 @@
 #pragma once
 
+#include <string>
 #include <unistd.h>
 #include <sys/socket.h>
-#include <netinet/in.h>
-#include <fcntl.h>
-#include <memory>
-#include <string>
 
-namespace net
+namespace dRPC::net
 {
     class Socket
     {
-    private:
-        int fd_;
-
     public:
-        Socket();
-        explicit Socket(int fd);
-        virtual ~Socket();
+        Socket(int sockfd);
+        ~Socket();
 
-        // 禁止拷贝
-        Socket(const Socket &) = delete;
-        Socket &operator=(const Socket &) = delete;
+        int fd() const { return sockfd_; }
+        const std::string &local_addr() const { return local_addr_; }
+        int local_port() const { return local_port_; }
+        const std::string &peer_addr() const { return peer_addr_; }
+        int peer_port() const { return peer_port_; }
 
-        // 允许移动
-        Socket(Socket &&other) noexcept;
-        Socket &operator=(Socket &&other) noexcept;
+        void close()
+        {
+            if (closed_)
+            {
+                return;
+            }
+            ::shutdown(sockfd_, SHUT_WR);
+            closed_ = true;
+        }
 
-        bool Bind(uint16_t port);
-        bool Listen(int backlog = SOMAXCONN);
-        std::unique_ptr<Socket> Accept();
-        bool Connect(const std::string &host, uint16_t port);
+        bool closed() const { return closed_; }
 
-        ssize_t Read(void *buffer, size_t length);
-        ssize_t Write(const void *buffer, size_t length);
+    private:
+        int sockfd_;
 
-        void SetNonBlocking(bool non_blocking);
-        void SetReuseAddr(bool reuse);
+        std::string local_addr_; // 本地地址
+        int local_port_;         // 本地端口
+        std::string peer_addr_;  // 对端地址
+        int peer_port_;          // 对端端口
 
-        std::string GetPeerAddress() const;
-
-        int GetFd() const { return fd_; }
-        bool IsValid() const { return fd_ >= 0; }
-        void Close();
+        bool closed_; // 关闭标识
     };
 }
