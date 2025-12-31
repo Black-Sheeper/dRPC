@@ -24,6 +24,7 @@ set(DRPC_CORE_SOURCES
     scheduler/scheduler.cpp
     server/rpc_server.cpp
     client/client_channel.cpp
+    proto/message.pb.cc
 )
 
 add_library(drpc_core STATIC ${DRPC_CORE_SOURCES})
@@ -36,6 +37,7 @@ target_include_directories(drpc_core
         ${DRPC_SRC_ROOT}/server
         ${DRPC_SRC_ROOT}/client
         ${DRPC_SRC_ROOT}/util
+        ${DRPC_SRC_ROOT}/proto
 )
 
 target_link_libraries(drpc_core

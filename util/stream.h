@@ -17,6 +17,16 @@ namespace dRPC::util
             return input_buffer_->read(buf, len);
         }
 
+        void push_limit(int limit)
+        {
+            input_buffer_->push_limit(limit);
+        }
+
+        void pop_limit()
+        {
+            input_buffer_->pop_limit();
+        }
+
         bool Next(const void **data, int *size) override
         {
             return input_buffer_->input_next(data, size);

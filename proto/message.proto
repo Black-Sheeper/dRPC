@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package dRPC.proto;
+
+enum MessageType {
+  MESSAGE_TYPE_UNSPECIFIED = 0;
+  REQUEST                  = 1;
+  RESPONSE                 = 2;
+}
+
+message Header {
+    uint64 magic = 1;
+    int32 version = 2;
+    MessageType message_type = 3;
+    int64 request_id = 4;
+    optional string service_name = 5;
+    optional string method_name = 6;
+}

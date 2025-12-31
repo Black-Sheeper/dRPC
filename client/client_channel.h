@@ -6,7 +6,7 @@
 #include "scheduler/scheduler.h"
 #include "scheduler/task.h"
 
-namespace dRPC::client
+namespace dRPC
 {
     struct ClientOptions
     {

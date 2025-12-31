@@ -156,10 +156,10 @@ namespace dRPC::util
         std::vector<iovec> get_iovecs()
         {
             std::vector<iovec> iovs;
-            for (dRPC::util::ChainedBuffer<>::Node* block = head_; block && iovs.size() < IOV_MAX; block = block->next)
+            for (dRPC::util::ChainedBuffer<>::Node *block = head_; block && iovs.size() < IOV_MAX; block = block->next)
             {
-                void* data=block->block.data_+block->block.read_pos;
-                size_t size=block->block.size();
+                void *data = block->block.data_ + block->block.read_pos;
+                size_t size = block->block.size();
                 iovs.emplace_back(data, size);
             }
             return iovs;
@@ -288,15 +288,6 @@ namespace dRPC::util
             block.write_pos -= to_backup;
         }
 
-    private:
-        Node *head_;
-        Node *tail_;
-        Node *free_list_;
-        size_t total_size_;
-        size_t consumed_bytes_ = 0;
-
-        int limit_ = INT32_MAX;
-
         void push_limit(int limit)
         {
             limit_ = limit;
@@ -306,6 +297,15 @@ namespace dRPC::util
         {
             limit_ = INT32_MAX;
         }
+
+    private:
+        Node *head_;
+        Node *tail_;
+        Node *free_list_;
+        size_t total_size_;
+        size_t consumed_bytes_ = 0;
+
+        int limit_ = INT32_MAX;
 
         Node *allocate_node()
         {

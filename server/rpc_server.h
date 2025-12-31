@@ -9,7 +9,7 @@
 #include "net/accepter.h"
 #include "scheduler/scheduler.h"
 
-namespace dRPC::server
+namespace dRPC
 {
     struct RpcServerOptions
     {

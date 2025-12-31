@@ -9,10 +9,10 @@
 int main() {
     dRPC::Scheduler scheduler(1000);
     auto executor = scheduler.alloc_executor();
-    dRPC::client::ClientOptions client_options;
+    dRPC::ClientOptions client_options;
     client_options.ip_ = "127.0.0.1";
     client_options.port_ = 8888;
-    dRPC::client::ClientChannel channel(client_options, executor);
+    dRPC::ClientChannel channel(client_options, executor);
 
     std::this_thread::sleep_for(std::chrono::seconds(5));
     scheduler.stop();
