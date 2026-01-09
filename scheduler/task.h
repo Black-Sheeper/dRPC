@@ -14,10 +14,10 @@ namespace dRPC
             }
 
             // 初始挂起点
-            std::suspend_always initial_suspend() { return {}; }
+            std::suspend_never initial_suspend() { return {}; }
 
             // 最终挂起点（协程结束）
-            std::suspend_always final_suspend() noexcept { return {}; }
+            std::suspend_never final_suspend() noexcept { return {}; }
 
             void unhandled_exception() { std::terminate(); }
 
