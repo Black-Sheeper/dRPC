@@ -45,37 +45,37 @@ struct TableStruct_echo_2eproto {
   static const uint32_t offsets[];
 };
 extern const ::PROTOBUF_NAMESPACE_ID::internal::DescriptorTable descriptor_table_echo_2eproto;
-class EchoRequst;
-struct EchoRequstDefaultTypeInternal;
-extern EchoRequstDefaultTypeInternal _EchoRequst_default_instance_;
+class EchoRequest;
+struct EchoRequestDefaultTypeInternal;
+extern EchoRequestDefaultTypeInternal _EchoRequest_default_instance_;
 class EchoResponse;
 struct EchoResponseDefaultTypeInternal;
 extern EchoResponseDefaultTypeInternal _EchoResponse_default_instance_;
 PROTOBUF_NAMESPACE_OPEN
-template<> ::EchoRequst* Arena::CreateMaybeMessage<::EchoRequst>(Arena*);
+template<> ::EchoRequest* Arena::CreateMaybeMessage<::EchoRequest>(Arena*);
 template<> ::EchoResponse* Arena::CreateMaybeMessage<::EchoResponse>(Arena*);
 PROTOBUF_NAMESPACE_CLOSE
 
 // ===================================================================
 
-class EchoRequst final :
-    public ::PROTOBUF_NAMESPACE_ID::Message /* @@protoc_insertion_point(class_definition:EchoRequst) */ {
+class EchoRequest final :
+    public ::PROTOBUF_NAMESPACE_ID::Message /* @@protoc_insertion_point(class_definition:EchoRequest) */ {
  public:
-  inline EchoRequst() : EchoRequst(nullptr) {}
-  ~EchoRequst() override;
-  explicit PROTOBUF_CONSTEXPR EchoRequst(::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized);
+  inline EchoRequest() : EchoRequest(nullptr) {}
+  ~EchoRequest() override;
+  explicit PROTOBUF_CONSTEXPR EchoRequest(::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized);
 
-  EchoRequst(const EchoRequst& from);
-  EchoRequst(EchoRequst&& from) noexcept
-    : EchoRequst() {
+  EchoRequest(const EchoRequest& from);
+  EchoRequest(EchoRequest&& from) noexcept
+    : EchoRequest() {
     *this = ::std::move(from);
   }
 
-  inline EchoRequst& operator=(const EchoRequst& from) {
+  inline EchoRequest& operator=(const EchoRequest& from) {
     CopyFrom(from);
     return *this;
   }
-  inline EchoRequst& operator=(EchoRequst&& from) noexcept {
+  inline EchoRequest& operator=(EchoRequest&& from) noexcept {
     if (this == &from) return *this;
     if (GetOwningArena() == from.GetOwningArena()
   #ifdef PROTOBUF_FORCE_COPY_IN_MOVE
@@ -98,20 +98,20 @@ class EchoRequst final :
   static const ::PROTOBUF_NAMESPACE_ID::Reflection* GetReflection() {
     return default_instance().GetMetadata().reflection;
   }
-  static const EchoRequst& default_instance() {
+  static const EchoRequest& default_instance() {
     return *internal_default_instance();
   }
-  static inline const EchoRequst* internal_default_instance() {
-    return reinterpret_cast<const EchoRequst*>(
-               &_EchoRequst_default_instance_);
+  static inline const EchoRequest* internal_default_instance() {
+    return reinterpret_cast<const EchoRequest*>(
+               &_EchoRequest_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
     0;
 
-  friend void swap(EchoRequst& a, EchoRequst& b) {
+  friend void swap(EchoRequest& a, EchoRequest& b) {
     a.Swap(&b);
   }
-  inline void Swap(EchoRequst* other) {
+  inline void Swap(EchoRequest* other) {
     if (other == this) return;
   #ifdef PROTOBUF_FORCE_COPY_IN_SWAP
     if (GetOwningArena() != nullptr &&
@@ -124,7 +124,7 @@ class EchoRequst final :
       ::PROTOBUF_NAMESPACE_ID::internal::GenericSwap(this, other);
     }
   }
-  void UnsafeArenaSwap(EchoRequst* other) {
+  void UnsafeArenaSwap(EchoRequest* other) {
     if (other == this) return;
     GOOGLE_DCHECK(GetOwningArena() == other->GetOwningArena());
     InternalSwap(other);
@@ -132,14 +132,14 @@ class EchoRequst final :
 
   // implements Message ----------------------------------------------
 
-  EchoRequst* New(::PROTOBUF_NAMESPACE_ID::Arena* arena = nullptr) const final {
-    return CreateMaybeMessage<EchoRequst>(arena);
+  EchoRequest* New(::PROTOBUF_NAMESPACE_ID::Arena* arena = nullptr) const final {
+    return CreateMaybeMessage<EchoRequest>(arena);
   }
   using ::PROTOBUF_NAMESPACE_ID::Message::CopyFrom;
-  void CopyFrom(const EchoRequst& from);
+  void CopyFrom(const EchoRequest& from);
   using ::PROTOBUF_NAMESPACE_ID::Message::MergeFrom;
-  void MergeFrom( const EchoRequst& from) {
-    EchoRequst::MergeImpl(*this, from);
+  void MergeFrom( const EchoRequest& from) {
+    EchoRequest::MergeImpl(*this, from);
   }
   private:
   static void MergeImpl(::PROTOBUF_NAMESPACE_ID::Message& to_msg, const ::PROTOBUF_NAMESPACE_ID::Message& from_msg);
@@ -157,15 +157,15 @@ class EchoRequst final :
   void SharedCtor(::PROTOBUF_NAMESPACE_ID::Arena* arena, bool is_message_owned);
   void SharedDtor();
   void SetCachedSize(int size) const final;
-  void InternalSwap(EchoRequst* other);
+  void InternalSwap(EchoRequest* other);
 
   private:
   friend class ::PROTOBUF_NAMESPACE_ID::internal::AnyMetadata;
   static ::PROTOBUF_NAMESPACE_ID::StringPiece FullMessageName() {
-    return "EchoRequst";
+    return "EchoRequest";
   }
   protected:
-  explicit EchoRequst(::PROTOBUF_NAMESPACE_ID::Arena* arena,
+  explicit EchoRequest(::PROTOBUF_NAMESPACE_ID::Arena* arena,
                        bool is_message_owned = false);
   public:
 
@@ -195,7 +195,7 @@ class EchoRequst final :
   std::string* _internal_mutable_message();
   public:
 
-  // @@protoc_insertion_point(class_scope:EchoRequst)
+  // @@protoc_insertion_point(class_scope:EchoRequest)
  private:
   class _Internal;
 
@@ -378,11 +378,11 @@ class EchoService : public ::PROTOBUF_NAMESPACE_ID::Service {
   static const ::PROTOBUF_NAMESPACE_ID::ServiceDescriptor* descriptor();
 
   virtual void Echo(::PROTOBUF_NAMESPACE_ID::RpcController* controller,
-                       const ::EchoRequst* request,
+                       const ::EchoRequest* request,
                        ::EchoResponse* response,
                        ::google::protobuf::Closure* done);
   virtual void Echo1(::PROTOBUF_NAMESPACE_ID::RpcController* controller,
-                       const ::EchoRequst* request,
+                       const ::EchoRequest* request,
                        ::EchoResponse* response,
                        ::google::protobuf::Closure* done);
 
@@ -415,11 +415,11 @@ class EchoService_Stub : public EchoService {
   // implements EchoService ------------------------------------------
 
   void Echo(::PROTOBUF_NAMESPACE_ID::RpcController* controller,
-                       const ::EchoRequst* request,
+                       const ::EchoRequest* request,
                        ::EchoResponse* response,
                        ::google::protobuf::Closure* done);
   void Echo1(::PROTOBUF_NAMESPACE_ID::RpcController* controller,
-                       const ::EchoRequst* request,
+                       const ::EchoRequest* request,
                        ::EchoResponse* response,
                        ::google::protobuf::Closure* done);
  private:
@@ -438,44 +438,44 @@ class EchoService_Stub : public EchoService {
   #pragma GCC diagnostic push
   #pragma GCC diagnostic ignored "-Wstrict-aliasing"
 #endif  // __GNUC__
-// EchoRequst
+// EchoRequest
 
 // string message = 1;
-inline void EchoRequst::clear_message() {
+inline void EchoRequest::clear_message() {
   _impl_.message_.ClearToEmpty();
 }
-inline const std::string& EchoRequst::message() const {
-  // @@protoc_insertion_point(field_get:EchoRequst.message)
+inline const std::string& EchoRequest::message() const {
+  // @@protoc_insertion_point(field_get:EchoRequest.message)
   return _internal_message();
 }
 template <typename ArgT0, typename... ArgT>
 inline PROTOBUF_ALWAYS_INLINE
-void EchoRequst::set_message(ArgT0&& arg0, ArgT... args) {
+void EchoRequest::set_message(ArgT0&& arg0, ArgT... args) {
  
  _impl_.message_.Set(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
-  // @@protoc_insertion_point(field_set:EchoRequst.message)
+  // @@protoc_insertion_point(field_set:EchoRequest.message)
 }
-inline std::string* EchoRequst::mutable_message() {
+inline std::string* EchoRequest::mutable_message() {
   std::string* _s = _internal_mutable_message();
-  // @@protoc_insertion_point(field_mutable:EchoRequst.message)
+  // @@protoc_insertion_point(field_mutable:EchoRequest.message)
   return _s;
 }
-inline const std::string& EchoRequst::_internal_message() const {
+inline const std::string& EchoRequest::_internal_message() const {
   return _impl_.message_.Get();
 }
-inline void EchoRequst::_internal_set_message(const std::string& value) {
+inline void EchoRequest::_internal_set_message(const std::string& value) {
   
   _impl_.message_.Set(value, GetArenaForAllocation());
 }
-inline std::string* EchoRequst::_internal_mutable_message() {
+inline std::string* EchoRequest::_internal_mutable_message() {
   
   return _impl_.message_.Mutable(GetArenaForAllocation());
 }
-inline std::string* EchoRequst::release_message() {
-  // @@protoc_insertion_point(field_release:EchoRequst.message)
+inline std::string* EchoRequest::release_message() {
+  // @@protoc_insertion_point(field_release:EchoRequest.message)
   return _impl_.message_.Release();
 }
-inline void EchoRequst::set_allocated_message(std::string* message) {
+inline void EchoRequest::set_allocated_message(std::string* message) {
   if (message != nullptr) {
     
   } else {
@@ -487,7 +487,7 @@ inline void EchoRequst::set_allocated_message(std::string* message) {
     _impl_.message_.Set("", GetArenaForAllocation());
   }
 #endif // PROTOBUF_FORCE_COPY_DEFAULT_STRING
-  // @@protoc_insertion_point(field_set_allocated:EchoRequst.message)
+  // @@protoc_insertion_point(field_set_allocated:EchoRequest.message)
 }
 
 // -------------------------------------------------------------------

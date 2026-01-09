@@ -29,12 +29,12 @@ int main()
     for (int i = 0; i <= 1000; ++i)
     {
         EchoService_Stub stub(&channel);
-        auto request = new EchoRequst;
+        auto request = new EchoRequest;
         request->set_message(data.data() + std::to_string(i));
         auto response = new EchoResponse;
         auto controller = new RpcController;
         auto done = google::protobuf::NewCallback(handle_response, response);
-        stub.Echo1(controller, request, response, done);
+        stub.Echo1(controller,request,response,done);
     }
     std::this_thread::sleep_for(std::chrono::seconds(5));
     scheduler.stop();

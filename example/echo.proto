@@ -2,7 +2,7 @@ syntax = "proto3";
 
 option cc_generic_services = true;
 
-message EchoRequst {
+message EchoRequest {
     string message = 1;
 }
 
@@ -11,6 +11,6 @@ message EchoResponse {
 }
 
 service EchoService {
-    rpc Echo(EchoRequst) returns (EchoResponse);
-    rpc Echo1(EchoRequst) returns (EchoResponse);
+    rpc Echo(EchoRequest) returns (EchoResponse);
+    rpc Echo1(EchoRequest) returns (EchoResponse);
 }

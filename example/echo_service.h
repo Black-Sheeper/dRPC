@@ -8,12 +8,12 @@ public:
     ~EchoServiceImpl() override = default;
 
     void Echo(google::protobuf::RpcController *controller,
-              const ::EchoRequst *request,
+              const ::EchoRequest *request,
               ::EchoResponse *response,
               ::google::protobuf::Closure *done) override;
 
     void Echo1(google::protobuf::RpcController *controller,
-               const ::EchoRequst *request,
+               const ::EchoRequest *request,
                ::EchoResponse *response,
                ::google::protobuf::Closure *done) override;
 };
