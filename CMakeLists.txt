@@ -25,6 +25,9 @@ set(DRPC_CORE_SOURCES
     server/rpc_server.cpp
     client/client_channel.cpp
     proto/message.pb.cc
+    example/echo.pb.cc
+    example/echo_service.cpp
+    util/service.cpp
 )
 
 add_library(drpc_core STATIC ${DRPC_CORE_SOURCES})
@@ -38,6 +41,7 @@ target_include_directories(drpc_core
         ${DRPC_SRC_ROOT}/client
         ${DRPC_SRC_ROOT}/util
         ${DRPC_SRC_ROOT}/proto
+        ${DRPC_SRC_ROOT}/example
 )
 
 target_link_libraries(drpc_core
@@ -50,18 +54,18 @@ if (Protobuf_FOUND)
     target_include_directories(drpc_core PUBLIC ${Protobuf_INCLUDE_DIRS})
 endif()
 
-add_executable(test_rpc_server
-    test/test_rpc_server.cc
+add_executable(echo_server
+    example/echo_server.cpp
 )
-target_link_libraries(test_rpc_server
+target_link_libraries(echo_server
     PRIVATE
         drpc_core
 )
 
-add_executable(test_rpc_client
-    test/test_rpc_client.cc
+add_executable(echo_client
+    example/echo_client.cpp
 )
-target_link_libraries(test_rpc_client
+target_link_libraries(echo_client
     PRIVATE
         drpc_core
 )
